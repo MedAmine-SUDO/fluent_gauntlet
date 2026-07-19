@@ -4,7 +4,7 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { RealtimeChannel } from "@supabase/supabase-js";
 import { RoomRow, RoomChannelState, PlayerState, Question, Category } from "@/types";
 import { allQuestions } from "@/data/questions";
-import { createRoom, joinRoom, startGame, endGame, getRoomChannel, getOrCreateAnonId } from "@/lib/rooms";
+import { createRoom, joinRoom, startGame, endGame, getRoomChannel, getOrCreateAnonId, getRoomById } from "@/lib/rooms";
 import { ArrowLeft, Copy, Check, Users, Timer, Zap } from "lucide-react";
 
 type Phase = "lobby" | "waiting" | "countdown" | "playing" | "results";
@@ -397,6 +397,13 @@ export default function RoomPage({ onBack }: Props) {
     channelRef.current = channel;
     channel.on("broadcast", { event: "state" }, ({ payload }) => {
       const msg = payload as RoomChannelState;
+      if (msg.type === "player_joined" && msg.state) {
+        setJoinerState(msg.state);
+        // Creator replies with their own state so the joiner sees the host name
+        if (isCreator && creatorState) {
+          channel.send({ type: "broadcast", event: "state", payload: { type: "player_update", player: "creator", state: creatorState } });
+        }
+      }
       if (msg.type === "game_start" && msg.startedAt) {
         setStartedAt(msg.startedAt);
         setPhase("countdown");
@@ -409,9 +416,21 @@ export default function RoomPage({ onBack }: Props) {
       if (msg.type === "game_over") setPhase("results");
     }).subscribe();
     return channel;
-  }, []);
+  }, [isCreator, creatorState]);
 
   useEffect(() => () => { channelRef.current?.unsubscribe(); }, []);
+
+  // Fallback poll: creator polls DB every 2s to detect joiner if broadcast is missed
+  useEffect(() => {
+    if (phase !== "waiting" || !room || !isCreator || joinerState) return;
+    const interval = setInterval(async () => {
+      const fresh = await getRoomById(room.id);
+      if (fresh?.joiner_name) {
+        setJoinerState({ name: fresh.joiner_name, score: 0, currentIndex: 0, timePenalty: 0, finished: false });
+      }
+    }, 2000);
+    return () => clearInterval(interval);
+  }, [phase, room, isCreator, joinerState]);
 
   const toggleCat = (cat: Category) => {
     setSelectedCats((prev) => prev.includes(cat) ? (prev.length === 1 ? prev : prev.filter((c) => c !== cat)) : [...prev, cat]);
@@ -435,10 +454,15 @@ export default function RoomPage({ onBack }: Props) {
     if (!displayName.trim() || !joinCode.trim()) return;
     const r = await joinRoom(joinCode.trim(), anonId, displayName.trim());
     if (!r) { setError("Room not found or already started."); return; }
+    const joiner: PlayerState = { name: displayName.trim(), score: 0, currentIndex: 0, timePenalty: 0, finished: false };
     setRoom(r);
-    setJoinerState({ name: displayName.trim(), score: 0, currentIndex: 0, timePenalty: 0, finished: false });
+    setJoinerState(joiner);
     loadQuestions(r.question_ids);
     subscribeToRoom(r.id);
+    // Broadcast join event so the creator knows we're here
+    setTimeout(() => {
+      channelRef.current?.send({ type: "broadcast", event: "state", payload: { type: "player_joined", player: "joiner", state: joiner } });
+    }, 500);
     setPhase("waiting");
   };
 

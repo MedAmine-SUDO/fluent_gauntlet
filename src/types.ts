@@ -40,7 +40,7 @@ export interface PlayerState {
 }
 
 export interface RoomChannelState {
-  type: "player_update" | "game_start" | "player_finished" | "game_over";
+  type: "player_update" | "game_start" | "player_finished" | "game_over" | "player_joined";
   player: "creator" | "joiner";
   state: PlayerState;
   startedAt?: number;

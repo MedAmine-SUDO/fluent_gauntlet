@@ -122,6 +122,16 @@ export async function getRoomByCode(code: string): Promise<RoomRow | null> {
   return (data as RoomRow) ?? null;
 }
 
+export async function getRoomById(id: string): Promise<RoomRow | null> {
+  const supabase = getSupabase();
+  const { data } = await supabase
+    .from("rooms")
+    .select()
+    .eq("id", id)
+    .single();
+  return (data as RoomRow) ?? null;
+}
+
 export function getRoomChannel(roomId: string) {
   return getSupabase().channel(`room:${roomId}`);
 }
