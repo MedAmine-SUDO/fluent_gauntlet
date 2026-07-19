@@ -40,7 +40,7 @@ export default function Home() {
                   English Gauntlet
                 </h1>
                 <p className="text-slate-500">
-                  Master words, grammar, and nuance in 10 minutes a day.
+                  Master words, grammar, and nuance.
                 </p>
               </div>
 

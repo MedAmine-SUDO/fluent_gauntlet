@@ -7,7 +7,7 @@ const inter = Inter({ subsets: ["latin"] });
 export const metadata: Metadata = {
   title: "Daily English Gauntlet | Master TOEIC & IELTS",
   description:
-    "Master synonyms, inverses, and exam tricks in just 10 minutes a day.",
+    "Master synonyms, inverses, and exam tricks.",
 };
 
 export default function RootLayout({
