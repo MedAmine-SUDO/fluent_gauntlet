@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { RealtimeChannel } from "@supabase/supabase-js";
 import { RoomRow, RoomChannelState, PlayerState, Question, Category } from "@/types";
 import { allQuestions } from "@/data/questions";
@@ -11,6 +11,18 @@ type Phase = "lobby" | "waiting" | "countdown" | "playing" | "results";
 
 interface Props {
   onBack: () => void;
+}
+
+const SEEN_KEY = "eg_room_seen";
+
+function getSeenIds(): string[] {
+  if (typeof window === "undefined") return [];
+  try { return JSON.parse(localStorage.getItem(SEEN_KEY) || "[]"); } catch { return []; }
+}
+
+function saveSeenIds(ids: string[]) {
+  if (typeof window === "undefined") return;
+  localStorage.setItem(SEEN_KEY, JSON.stringify(ids));
 }
 
 function LobbyView({
@@ -209,6 +221,13 @@ function CompetitiveQuiz({
 
   const currentQ = questions[myState.currentIndex];
 
+  // Shuffle options per question, mapping display index → original index
+  const optionMap = useMemo(() => {
+    if (!currentQ) return [];
+    const indices = currentQ.options.map((_, i) => i);
+    return shuffle(indices);
+  }, [currentQ?.id]);
+
   useEffect(() => {
     timerRef.current = setInterval(() => {
       const elapsed = Date.now() - startedAt;
@@ -228,11 +247,12 @@ function CompetitiveQuiz({
   const progress = (myState.currentIndex / questions.length) * 100;
   const oppProgress = opponentState ? (opponentState.currentIndex / questions.length) * 100 : 0;
 
-  const handleSelect = (index: number) => {
+  const handleSelect = (displayIndex: number) => {
     if (showFeedback) return;
-    setSelectedIndex(index);
+    setSelectedIndex(displayIndex);
     setShowFeedback(true);
-    const isCorrect = index === currentQ.correctIndex;
+    const originalIndex = optionMap[displayIndex];
+    const isCorrect = originalIndex === currentQ.correctIndex;
     const newIndex = myState.currentIndex + 1;
     const newScore = isCorrect ? myState.score + 1 : myState.score;
     const finished = newIndex >= questions.length;
@@ -243,10 +263,11 @@ function CompetitiveQuiz({
     }, isCorrect ? 1200 : 600);
   };
 
-  const getOptionStyle = (index: number) => {
-    if (!showFeedback) return selectedIndex === index ? "border-indigo-400 bg-indigo-50 text-indigo-900 ring-2 ring-indigo-200" : "border-slate-200 bg-white hover:border-indigo-300 hover:bg-slate-50";
-    if (index === currentQ.correctIndex) return "border-emerald-500 bg-emerald-50 text-emerald-900 ring-2 ring-emerald-200";
-    if (index === selectedIndex && index !== currentQ.correctIndex) return "border-rose-500 bg-rose-50 text-rose-900 ring-2 ring-rose-200";
+  const getOptionStyle = (displayIndex: number) => {
+    const originalIndex = optionMap[displayIndex];
+    if (!showFeedback) return selectedIndex === displayIndex ? "border-indigo-400 bg-indigo-50 text-indigo-900 ring-2 ring-indigo-200" : "border-slate-200 bg-white hover:border-indigo-300 hover:bg-slate-50";
+    if (originalIndex === currentQ.correctIndex) return "border-emerald-500 bg-emerald-50 text-emerald-900 ring-2 ring-emerald-200";
+    if (displayIndex === selectedIndex && originalIndex !== currentQ.correctIndex) return "border-rose-500 bg-rose-50 text-rose-900 ring-2 ring-rose-200";
     return "border-slate-200 bg-white opacity-40";
   };
 
@@ -284,17 +305,17 @@ function CompetitiveQuiz({
       <h2 className="text-xl md:text-2xl font-semibold text-slate-900 leading-snug mb-8">{currentQ.question}</h2>
 
       <div className="space-y-3">
-        {currentQ.options.map((option, index) => (
-          <button key={index} onClick={() => handleSelect(index)} disabled={showFeedback} className={`w-full text-left p-5 rounded-xl border-2 transition-all duration-200 cursor-pointer disabled:cursor-default ${getOptionStyle(index)}`}>
-            <span className="text-base font-medium">{option}</span>
+        {optionMap.map((originalIndex, displayIndex) => (
+          <button key={displayIndex} onClick={() => handleSelect(displayIndex)} disabled={showFeedback} className={`w-full text-left p-5 rounded-xl border-2 transition-all duration-200 cursor-pointer disabled:cursor-default ${getOptionStyle(displayIndex)}`}>
+            <span className="text-base font-medium">{currentQ.options[originalIndex]}</span>
           </button>
         ))}
       </div>
 
       {showFeedback && (
-        <div className={`mt-6 p-4 rounded-xl border animate-in fade-in duration-200 ${selectedIndex === currentQ.correctIndex ? "bg-emerald-50 border-emerald-200" : "bg-rose-50 border-rose-200"}`}>
-          <p className={`text-sm font-bold mb-1 ${selectedIndex === currentQ.correctIndex ? "text-emerald-800" : "text-rose-800"}`}>
-            {selectedIndex === currentQ.correctIndex ? "Correct!" : "Wrong!"}
+        <div className={`mt-6 p-4 rounded-xl border animate-in fade-in duration-200 ${selectedIndex !== null && optionMap[selectedIndex] === currentQ.correctIndex ? "bg-emerald-50 border-emerald-200" : "bg-rose-50 border-rose-200"}`}>
+          <p className={`text-sm font-bold mb-1 ${selectedIndex !== null && optionMap[selectedIndex] === currentQ.correctIndex ? "text-emerald-800" : "text-rose-800"}`}>
+            {selectedIndex !== null && optionMap[selectedIndex] === currentQ.correctIndex ? "Correct!" : "Wrong!"}
           </p>
           <p className="text-slate-700 text-sm">{currentQ.explanation}</p>
         </div>
@@ -375,16 +396,20 @@ export default function RoomPage({ onBack }: Props) {
   const channelRef = useRef<RealtimeChannel | null>(null);
   const isCreator = room?.creator_id === anonId;
 
+  const loadQuestions = (ids: string[]) => {
+    setQuestions(ids.map((id) => allQuestions.find((q) => q.id === id)).filter(Boolean) as Question[]);
+  };
+
   const subscribeToRoom = useCallback((roomId: string) => {
+    if (channelRef.current) {
+      channelRef.current.unsubscribe();
+    }
     const channel = getRoomChannel(roomId);
     channelRef.current = channel;
     channel.on("broadcast", { event: "state" }, ({ payload }) => {
       const msg = payload as RoomChannelState;
       if (msg.type === "player_joined" && msg.state) {
         setJoinerState(msg.state);
-        if (isCreator && creatorState) {
-          channel.send({ type: "broadcast", event: "state", payload: { type: "player_update", player: "creator", state: creatorState } });
-        }
       }
       if (msg.type === "game_start" && msg.startedAt) {
         setStartedAt(msg.startedAt);
@@ -397,7 +422,7 @@ export default function RoomPage({ onBack }: Props) {
       }
       if (msg.type === "game_over") setPhase("results");
       if (msg.type === "rematch" && msg.questionIds) {
-        loadQuestions(msg.questionIds);
+        setQuestions(msg.questionIds.map((id) => allQuestions.find((q) => q.id === id)).filter(Boolean) as Question[]);
         setCreatorState((prev) => prev ? { ...prev, score: 0, currentIndex: 0, timePenalty: 0, finished: false } : prev);
         setJoinerState((prev) => prev ? { ...prev, score: 0, currentIndex: 0, timePenalty: 0, finished: false } : prev);
         const now = Date.now();
@@ -407,9 +432,18 @@ export default function RoomPage({ onBack }: Props) {
       }
     }).subscribe();
     return channel;
-  }, [isCreator, creatorState]);
+  }, []);
 
   useEffect(() => () => { channelRef.current?.unsubscribe(); }, []);
+
+  // Save seen questions when game ends
+  useEffect(() => {
+    if (phase !== "results" || questions.length === 0) return;
+    const playedIds = questions.map((q) => q.id);
+    const existing = getSeenIds();
+    const merged = Array.from(new Set([...existing, ...playedIds]));
+    saveSeenIds(merged);
+  }, [phase]);
 
   useEffect(() => {
     if (phase !== "waiting" || !room || !isCreator || joinerState) return;
@@ -426,16 +460,14 @@ export default function RoomPage({ onBack }: Props) {
     setSelectedCats((prev) => prev.includes(cat) ? (prev.length === 1 ? prev : prev.filter((c) => c !== cat)) : [...prev, cat]);
   };
 
-  const loadQuestions = (ids: string[]) => {
-    setQuestions(ids.map((id) => allQuestions.find((q) => q.id === id)).filter(Boolean) as Question[]);
-  };
-
   const handleCreate = async () => {
     if (!displayName.trim()) return;
-    const r = await createRoom(anonId, displayName.trim(), selectedCats, timeLimit, 0);
+    const seen = getSeenIds();
+    const r = await createRoom(anonId, displayName.trim(), selectedCats, timeLimit, 0, seen);
     if (!r) { setError("Failed to create room. Check your database setup."); return; }
     setRoom(r);
     setCreatorState({ name: displayName.trim(), score: 0, currentIndex: 0, timePenalty: 0, finished: false });
+    loadQuestions(r.question_ids);
     subscribeToRoom(r.id);
     setPhase("waiting");
   };
@@ -446,6 +478,7 @@ export default function RoomPage({ onBack }: Props) {
     if (!r) { setError("Room not found or already started."); return; }
     const joiner: PlayerState = { name: displayName.trim(), score: 0, currentIndex: 0, timePenalty: 0, finished: false };
     setRoom(r);
+    setTimeLimit(r.time_limit);
     setJoinerState(joiner);
     setCreatorState({ name: r.creator_name, score: 0, currentIndex: 0, timePenalty: 0, finished: false });
     loadQuestions(r.question_ids);
@@ -471,7 +504,6 @@ export default function RoomPage({ onBack }: Props) {
     if (isCreator) setCreatorState(state);
     else setJoinerState(state);
     channelRef.current?.send({ type: "broadcast", event: "state", payload: { type: state.finished ? "player_finished" : "player_update", player: isCreator ? "creator" : "joiner", state } });
-    // When someone finishes, end the game immediately for both
     if (state.finished) {
       setPhase("results");
       channelRef.current?.send({ type: "broadcast", event: "state", payload: { type: "game_over", player: isCreator ? "creator" : "joiner", state } });
@@ -493,8 +525,9 @@ export default function RoomPage({ onBack }: Props) {
 
   const handleTryAgain = () => {
     if (!isCreator || !room) return;
-    const newIds = pickQuestions(selectedCats);
-    loadQuestions(newIds);
+    const seen = getSeenIds();
+    const newIds = pickQuestions(selectedCats, seen);
+    setQuestions(newIds.map((id) => allQuestions.find((q) => q.id === id)).filter(Boolean) as Question[]);
     setCreatorState((prev) => prev ? { ...prev, score: 0, currentIndex: 0, timePenalty: 0, finished: false } : prev);
     setJoinerState((prev) => prev ? { ...prev, score: 0, currentIndex: 0, timePenalty: 0, finished: false } : prev);
     channelRef.current?.send({ type: "broadcast", event: "state", payload: { type: "rematch", player: "creator", state: creatorState!, questionIds: newIds } });

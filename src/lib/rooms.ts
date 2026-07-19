@@ -39,10 +39,11 @@ export async function createRoom(
   creatorName: string,
   categories: Category[],
   timeLimit: number,
-  penalty: number
+  penalty: number,
+  excludeIds: string[] = []
 ): Promise<RoomRow | null> {
   const supabase = getSupabase();
-  const pool = shuffle(allQuestions.filter((q) => categories.includes(q.category)));
+  const pool = shuffle(allQuestions.filter((q) => categories.includes(q.category) && !excludeIds.includes(q.id)));
   const questionIds = pool.map((q) => q.id);
   const code = generateCode();
 
@@ -136,7 +137,7 @@ export function getRoomChannel(roomId: string) {
   return getSupabase().channel(`room:${roomId}`);
 }
 
-export function pickQuestions(categories: Category[]): string[] {
-  const pool = shuffle(allQuestions.filter((q) => categories.includes(q.category)));
+export function pickQuestions(categories: Category[], excludeIds: string[] = []): string[] {
+  const pool = shuffle(allQuestions.filter((q) => categories.includes(q.category) && !excludeIds.includes(q.id)));
   return pool.map((q) => q.id);
 }
