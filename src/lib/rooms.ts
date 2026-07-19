@@ -5,6 +5,18 @@ import { Category } from "@/types";
 
 const CODE_CHARS = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
 
+const ANON_ID_KEY = "eg_anon_id";
+
+export function getOrCreateAnonId(): string {
+  if (typeof window === "undefined") return crypto.randomUUID();
+  let id = localStorage.getItem(ANON_ID_KEY);
+  if (!id) {
+    id = crypto.randomUUID();
+    localStorage.setItem(ANON_ID_KEY, id);
+  }
+  return id;
+}
+
 export function generateCode(): string {
   let code = "";
   for (let i = 0; i < 6; i++) {

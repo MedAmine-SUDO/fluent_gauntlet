@@ -4,8 +4,7 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { RealtimeChannel } from "@supabase/supabase-js";
 import { RoomRow, RoomChannelState, PlayerState, Question, Category } from "@/types";
 import { allQuestions } from "@/data/questions";
-import { useAuth } from "@/lib/supabase/provider";
-import { createRoom, joinRoom, startGame, endGame, getRoomChannel } from "@/lib/rooms";
+import { createRoom, joinRoom, startGame, endGame, getRoomChannel, getOrCreateAnonId } from "@/lib/rooms";
 import { ArrowLeft, Copy, Check, Users, Timer, Zap } from "lucide-react";
 
 type Phase = "lobby" | "waiting" | "countdown" | "playing" | "results";
@@ -376,7 +375,7 @@ function RoomResults({
 // ── Main Room Page ──
 
 export default function RoomPage({ onBack }: Props) {
-  const { user } = useAuth();
+  const [anonId] = useState(() => getOrCreateAnonId());
   const [phase, setPhase] = useState<Phase>("lobby");
   const [room, setRoom] = useState<RoomRow | null>(null);
   const [copied, setCopied] = useState(false);
@@ -391,7 +390,7 @@ export default function RoomPage({ onBack }: Props) {
   const [creatorState, setCreatorState] = useState<PlayerState | null>(null);
   const [joinerState, setJoinerState] = useState<PlayerState | null>(null);
   const channelRef = useRef<RealtimeChannel | null>(null);
-  const isCreator = room?.creator_id === user?.id;
+  const isCreator = room?.creator_id === anonId;
 
   const subscribeToRoom = useCallback((roomId: string) => {
     const channel = getRoomChannel(roomId);
@@ -423,8 +422,8 @@ export default function RoomPage({ onBack }: Props) {
   };
 
   const handleCreate = async () => {
-    if (!user || !displayName.trim()) return;
-    const r = await createRoom(user.id, displayName.trim(), selectedCats, timeLimit, penalty);
+    if (!displayName.trim()) return;
+    const r = await createRoom(anonId, displayName.trim(), selectedCats, timeLimit, penalty);
     if (!r) { setError("Failed to create room. Check your database setup."); return; }
     setRoom(r);
     setCreatorState({ name: displayName.trim(), score: 0, currentIndex: 0, timePenalty: 0, finished: false });
@@ -433,8 +432,8 @@ export default function RoomPage({ onBack }: Props) {
   };
 
   const handleJoin = async () => {
-    if (!user || !displayName.trim() || !joinCode.trim()) return;
-    const r = await joinRoom(joinCode.trim(), user.id, displayName.trim());
+    if (!displayName.trim() || !joinCode.trim()) return;
+    const r = await joinRoom(joinCode.trim(), anonId, displayName.trim());
     if (!r) { setError("Room not found or already started."); return; }
     setRoom(r);
     setJoinerState({ name: displayName.trim(), score: 0, currentIndex: 0, timePenalty: 0, finished: false });
@@ -494,17 +493,6 @@ export default function RoomPage({ onBack }: Props) {
 
   if (phase === "results") {
     return <RoomResults creatorState={creatorState} joinerState={joinerState} creatorName={room?.creator_name || "Player 1"} joinerName={room?.joiner_name || "Player 2"} isCreator={!!isCreator} onBack={onBack} />;
-  }
-
-  if (!user) {
-    return (
-      <div className="w-full max-w-lg mx-auto text-center animate-in fade-in duration-500">
-        <div className="bg-white p-10 rounded-3xl shadow-xl border border-slate-100">
-          <p className="text-slate-500 mb-4">Sign in to play with friends.</p>
-          <button onClick={onBack} className="text-indigo-600 font-semibold text-sm hover:underline cursor-pointer">Go back</button>
-        </div>
-      </div>
-    );
   }
 
   return <LobbyView displayName={displayName} setDisplayName={setDisplayName} joinCode={joinCode} setJoinCode={setJoinCode} selectedCats={selectedCats} toggleCat={toggleCat} timeLimit={timeLimit} setTimeLimit={setTimeLimit} penalty={penalty} setPenalty={setPenalty} error={error} onCreate={handleCreate} onJoin={handleJoin} onBack={onBack} />;
