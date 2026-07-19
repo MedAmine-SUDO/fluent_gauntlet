@@ -1,14 +1,15 @@
 "use client";
 
-import { RotateCcw, Trophy } from "lucide-react";
+import { RotateCcw, Trophy, ArrowLeft } from "lucide-react";
 
 interface Props {
   score: number;
   total: number;
   onRestart: () => void;
+  onBackToPicker: () => void;
 }
 
-export default function ResultsScreen({ score, total, onRestart }: Props) {
+export default function ResultsScreen({ score, total, onRestart, onBackToPicker }: Props) {
   const percentage = Math.round((score / total) * 100);
 
   const estimatedToiec = 450 + Math.round((percentage / 100) * 450);
@@ -56,13 +57,22 @@ export default function ResultsScreen({ score, total, onRestart }: Props) {
           </div>
         </div>
 
-        <button
-          onClick={onRestart}
-          className="w-full py-4 bg-slate-900 text-white rounded-xl font-semibold text-lg hover:bg-slate-800 active:scale-[0.98] transition-all flex items-center justify-center gap-2"
-        >
-          <RotateCcw size={20} />
-          Practice Again
-        </button>
+        <div className="space-y-3">
+          <button
+            onClick={onRestart}
+            className="w-full py-4 bg-slate-900 text-white rounded-xl font-semibold text-lg hover:bg-slate-800 active:scale-[0.98] transition-all flex items-center justify-center gap-2"
+          >
+            <RotateCcw size={20} />
+            Practice Again
+          </button>
+          <button
+            onClick={onBackToPicker}
+            className="w-full py-3 bg-slate-100 text-slate-700 rounded-xl font-semibold text-sm hover:bg-slate-200 active:scale-[0.98] transition-all flex items-center justify-center gap-2"
+          >
+            <ArrowLeft size={18} />
+            Change Categories
+          </button>
+        </div>
       </div>
     </div>
   );

@@ -1,26 +1,13 @@
 "use client";
 
 import { useState } from "react";
-import { Question } from "@/data/questions";
-import { CheckCircle2, XCircle, ChevronRight } from "lucide-react";
-
-interface Props {
-  question: Question;
-  onAnswer: (isCorrect: boolean) => void;
-  currentIndex: number;
-  totalQuestions: number;
-}
+import { Question, Category } from "@/data/questions";
+import { CheckCircle2, XCircle, ChevronRight, ArrowRight } from "lucide-react";
 
 const categoryColors: Record<
-  Question["category"],
+  Category,
   { bg: string; text: string; border: string; fill: string }
 > = {
-  Tip: {
-    bg: "bg-amber-50",
-    text: "text-amber-700",
-    border: "border-amber-200",
-    fill: "bg-amber-500",
-  },
   Synonym: {
     bg: "bg-sky-50",
     text: "text-sky-700",
@@ -39,19 +26,28 @@ const categoryColors: Record<
     border: "border-rose-200",
     fill: "bg-rose-500",
   },
-  Boss: {
-    bg: "bg-slate-100",
-    text: "text-slate-700",
-    border: "border-slate-300",
-    fill: "bg-slate-900",
+  Grammar: {
+    bg: "bg-amber-50",
+    text: "text-amber-700",
+    border: "border-amber-200",
+    fill: "bg-amber-500",
   },
 };
+
+interface Props {
+  question: Question;
+  onAnswer: (isCorrect: boolean) => void;
+  currentIndex: number;
+  totalQuestions: number;
+  isInfinite: boolean;
+}
 
 export default function QuestionCard({
   question,
   onAnswer,
   currentIndex,
   totalQuestions,
+  isInfinite,
 }: Props) {
   const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
   const [showFeedback, setShowFeedback] = useState(false);
@@ -62,12 +58,12 @@ export default function QuestionCard({
     if (showFeedback) return;
     setSelectedIndex(index);
     setShowFeedback(true);
+  };
 
-    setTimeout(() => {
-      onAnswer(index === question.correctIndex);
-      setSelectedIndex(null);
-      setShowFeedback(false);
-    }, 2500);
+  const handleNext = () => {
+    onAnswer(selectedIndex === question.correctIndex);
+    setSelectedIndex(null);
+    setShowFeedback(false);
   };
 
   const getOptionStyle = (index: number) => {
@@ -86,7 +82,7 @@ export default function QuestionCard({
 
   return (
     <div className="w-full max-w-2xl mx-auto animate-in fade-in slide-in-from-bottom-4 duration-500">
-      {/* Progress Header */}
+      {/* Header */}
       <div className="flex justify-between items-center mb-6">
         <span
           className={`text-xs font-semibold uppercase tracking-widest px-3 py-1.5 rounded-full ${colors.bg} ${colors.text} ${colors.border} border`}
@@ -94,19 +90,25 @@ export default function QuestionCard({
           {question.category}
         </span>
         <span className="text-sm font-medium text-slate-400">
-          {currentIndex + 1} / {totalQuestions}
+          {isInfinite ? (
+            `${currentIndex + 1}`
+          ) : (
+            `${currentIndex + 1} / ${totalQuestions}`
+          )}
         </span>
       </div>
 
       {/* Progress Bar */}
-      <div className="w-full h-1.5 bg-slate-200 rounded-full mb-10 overflow-hidden">
-        <div
-          className={`h-full ${colors.fill} rounded-full transition-all duration-700 ease-out`}
-          style={{
-            width: `${((currentIndex + (showFeedback ? 1 : 0)) / totalQuestions) * 100}%`,
-          }}
-        />
-      </div>
+      {!isInfinite && (
+        <div className="w-full h-1.5 bg-slate-200 rounded-full mb-10 overflow-hidden">
+          <div
+            className={`h-full ${colors.fill} rounded-full transition-all duration-700 ease-out`}
+            style={{
+              width: `${((currentIndex + (showFeedback ? 1 : 0)) / totalQuestions) * 100}%`,
+            }}
+          />
+        </div>
+      )}
 
       {/* Difficulty Badge */}
       <span
@@ -159,29 +161,39 @@ export default function QuestionCard({
         ))}
       </div>
 
-      {/* Feedback Explanation */}
+      {/* Feedback + Next Button */}
       {showFeedback && (
-        <div
-          className={`mt-8 p-5 rounded-xl border animate-in fade-in slide-in-from-bottom-2 duration-300 ${
-            selectedIndex === question.correctIndex
-              ? "bg-emerald-50 border-emerald-200"
-              : "bg-rose-50 border-rose-200"
-          }`}
-        >
-          <p
-            className={`text-sm font-bold mb-1 ${
+        <div className="mt-8 animate-in fade-in slide-in-from-bottom-2 duration-300">
+          <div
+            className={`p-5 rounded-xl border ${
               selectedIndex === question.correctIndex
-                ? "text-emerald-800"
-                : "text-rose-800"
+                ? "bg-emerald-50 border-emerald-200"
+                : "bg-rose-50 border-rose-200"
             }`}
           >
-            {selectedIndex === question.correctIndex
-              ? "Correct!"
-              : "Not quite."}
-          </p>
-          <p className="text-slate-700 text-sm leading-relaxed">
-            {question.explanation}
-          </p>
+            <p
+              className={`text-sm font-bold mb-1 ${
+                selectedIndex === question.correctIndex
+                  ? "text-emerald-800"
+                  : "text-rose-800"
+              }`}
+            >
+              {selectedIndex === question.correctIndex
+                ? "Correct!"
+                : "Not quite."}
+            </p>
+            <p className="text-slate-700 text-sm leading-relaxed">
+              {question.explanation}
+            </p>
+          </div>
+
+          <button
+            onClick={handleNext}
+            className="mt-4 w-full py-3.5 bg-slate-900 text-white rounded-xl font-semibold text-sm hover:bg-slate-800 active:scale-[0.98] transition-all flex items-center justify-center gap-2"
+          >
+            Next Question
+            <ArrowRight size={18} />
+          </button>
         </div>
       )}
     </div>
