@@ -40,8 +40,9 @@ export interface PlayerState {
 }
 
 export interface RoomChannelState {
-  type: "player_update" | "game_start" | "player_finished" | "game_over" | "player_joined";
+  type: "player_update" | "game_start" | "player_finished" | "game_over" | "player_joined" | "rematch";
   player: "creator" | "joiner";
   state: PlayerState;
   startedAt?: number;
+  questionIds?: string[];
 }

@@ -4,7 +4,7 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { RealtimeChannel } from "@supabase/supabase-js";
 import { RoomRow, RoomChannelState, PlayerState, Question, Category } from "@/types";
 import { allQuestions } from "@/data/questions";
-import { createRoom, joinRoom, startGame, endGame, getRoomChannel, getOrCreateAnonId, getRoomById } from "@/lib/rooms";
+import { createRoom, joinRoom, startGame, endGame, getRoomChannel, getOrCreateAnonId, getRoomById, pickQuestions, shuffle } from "@/lib/rooms";
 import { ArrowLeft, Copy, Check, Users, Timer } from "lucide-react";
 
 type Phase = "lobby" | "waiting" | "countdown" | "playing" | "results";
@@ -308,12 +308,14 @@ function RoomResults({
   joinerState,
   totalQuestions,
   isCreator,
+  onTryAgain,
   onBack,
 }: {
   creatorState: PlayerState | null;
   joinerState: PlayerState | null;
   totalQuestions: number;
   isCreator: boolean;
+  onTryAgain: () => void;
   onBack: () => void;
 }) {
   const me = isCreator ? creatorState : joinerState;
@@ -341,6 +343,11 @@ function RoomResults({
             <p className="text-4xl font-bold text-slate-900">{theirScore}<span className="text-lg text-slate-400">/{totalQuestions}</span></p>
           </div>
         </div>
+        {isCreator && (
+          <button onClick={onTryAgain} className="w-full py-4 bg-indigo-600 text-white rounded-xl font-semibold text-lg hover:bg-indigo-700 active:scale-[0.98] transition-all shadow-lg shadow-indigo-200 cursor-pointer mb-3">
+            Try Again
+          </button>
+        )}
         <button onClick={onBack} className="w-full py-4 bg-slate-900 text-white rounded-xl font-semibold text-lg hover:bg-slate-800 active:scale-[0.98] transition-all cursor-pointer">
           Back to Menu
         </button>
@@ -389,6 +396,15 @@ export default function RoomPage({ onBack }: Props) {
         else setJoinerState(msg.state);
       }
       if (msg.type === "game_over") setPhase("results");
+      if (msg.type === "rematch" && msg.questionIds) {
+        loadQuestions(msg.questionIds);
+        setCreatorState((prev) => prev ? { ...prev, score: 0, currentIndex: 0, timePenalty: 0, finished: false } : prev);
+        setJoinerState((prev) => prev ? { ...prev, score: 0, currentIndex: 0, timePenalty: 0, finished: false } : prev);
+        const now = Date.now();
+        setStartedAt(now);
+        setPhase("countdown");
+        setTimeout(() => setPhase("playing"), 3000);
+      }
     }).subscribe();
     return channel;
   }, [isCreator, creatorState]);
@@ -475,6 +491,19 @@ export default function RoomPage({ onBack }: Props) {
     if (room) endGame(room.id);
   };
 
+  const handleTryAgain = () => {
+    if (!isCreator || !room) return;
+    const newIds = pickQuestions(selectedCats);
+    loadQuestions(newIds);
+    setCreatorState((prev) => prev ? { ...prev, score: 0, currentIndex: 0, timePenalty: 0, finished: false } : prev);
+    setJoinerState((prev) => prev ? { ...prev, score: 0, currentIndex: 0, timePenalty: 0, finished: false } : prev);
+    channelRef.current?.send({ type: "broadcast", event: "state", payload: { type: "rematch", player: "creator", state: creatorState!, questionIds: newIds } });
+    const now = Date.now();
+    setStartedAt(now);
+    setPhase("countdown");
+    setTimeout(() => setPhase("playing"), 3000);
+  };
+
   if (phase === "waiting" && room) {
     return <WaitingView room={room} isCreator={!!isCreator} creatorState={creatorState} joinerState={joinerState} timeLimit={timeLimit} copied={copied} onCopy={() => { navigator.clipboard.writeText(room.code); setCopied(true); setTimeout(() => setCopied(false), 2000); }} onStart={handleStart} onLeave={onBack} />;
   }
@@ -490,7 +519,7 @@ export default function RoomPage({ onBack }: Props) {
   }
 
   if (phase === "results") {
-    return <RoomResults creatorState={creatorState} joinerState={joinerState} totalQuestions={questions.length} isCreator={!!isCreator} onBack={onBack} />;
+    return <RoomResults creatorState={creatorState} joinerState={joinerState} totalQuestions={questions.length} isCreator={!!isCreator} onTryAgain={handleTryAgain} onBack={onBack} />;
   }
 
   return <LobbyView displayName={displayName} setDisplayName={setDisplayName} joinCode={joinCode} setJoinCode={setJoinCode} selectedCats={selectedCats} toggleCat={toggleCat} timeLimit={timeLimit} setTimeLimit={setTimeLimit} error={error} onCreate={handleCreate} onJoin={handleJoin} onBack={onBack} />;

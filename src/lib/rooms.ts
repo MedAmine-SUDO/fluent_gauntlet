@@ -25,7 +25,7 @@ export function generateCode(): string {
   return code;
 }
 
-function shuffle<T>(arr: T[]): T[] {
+export function shuffle<T>(arr: T[]): T[] {
   const a = [...arr];
   for (let i = a.length - 1; i > 0; i--) {
     const j = Math.floor(Math.random() * (i + 1));
@@ -134,4 +134,9 @@ export async function getRoomById(id: string): Promise<RoomRow | null> {
 
 export function getRoomChannel(roomId: string) {
   return getSupabase().channel(`room:${roomId}`);
+}
+
+export function pickQuestions(categories: Category[]): string[] {
+  const pool = shuffle(allQuestions.filter((q) => categories.includes(q.category)));
+  return pool.map((q) => q.id);
 }
