@@ -5,7 +5,7 @@ import { RealtimeChannel } from "@supabase/supabase-js";
 import { RoomRow, RoomChannelState, PlayerState, Question, Category } from "@/types";
 import { allQuestions } from "@/data/questions";
 import { createRoom, joinRoom, startGame, endGame, getRoomChannel, getOrCreateAnonId, getRoomById } from "@/lib/rooms";
-import { ArrowLeft, Copy, Check, Users, Timer, Zap } from "lucide-react";
+import { ArrowLeft, Copy, Check, Users, Timer } from "lucide-react";
 
 type Phase = "lobby" | "waiting" | "countdown" | "playing" | "results";
 
@@ -22,8 +22,6 @@ function LobbyView({
   toggleCat,
   timeLimit,
   setTimeLimit,
-  penalty,
-  setPenalty,
   error,
   onCreate,
   onJoin,
@@ -37,8 +35,6 @@ function LobbyView({
   toggleCat: (c: Category) => void;
   timeLimit: number;
   setTimeLimit: (v: number) => void;
-  penalty: number;
-  setPenalty: (v: number) => void;
   error: string;
   onCreate: () => void;
   onJoin: () => void;
@@ -66,19 +62,10 @@ function LobbyView({
         </div>
 
         <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Time Limit</label>
-        <div className="grid grid-cols-4 gap-2 mb-5">
+        <div className="grid grid-cols-4 gap-2 mb-8">
           {[30, 60, 90, 120].map((t) => (
             <button key={t} onClick={() => setTimeLimit(t)} className={`py-2 rounded-lg text-sm font-semibold transition-all cursor-pointer ${timeLimit === t ? "bg-indigo-600 text-white" : "bg-slate-100 text-slate-600 hover:bg-slate-200"}`}>
               {t}s
-            </button>
-          ))}
-        </div>
-
-        <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Wrong Answer Penalty</label>
-        <div className="grid grid-cols-4 gap-2 mb-8">
-          {[0, 5, 10, 15].map((p) => (
-            <button key={p} onClick={() => setPenalty(p)} className={`py-2 rounded-lg text-sm font-semibold transition-all cursor-pointer ${penalty === p ? "bg-indigo-600 text-white" : "bg-slate-100 text-slate-600 hover:bg-slate-200"}`}>
-              {p === 0 ? "None" : `${p}s`}
             </button>
           ))}
         </div>
@@ -112,7 +99,6 @@ function WaitingView({
   creatorState,
   joinerState,
   timeLimit,
-  penalty,
   copied,
   onCopy,
   onStart,
@@ -123,7 +109,6 @@ function WaitingView({
   creatorState: PlayerState | null;
   joinerState: PlayerState | null;
   timeLimit: number;
-  penalty: number;
   copied: boolean;
   onCopy: () => void;
   onStart: () => void;
@@ -165,7 +150,6 @@ function WaitingView({
 
         <div className="flex items-center justify-center gap-4 text-xs text-slate-500 mb-6">
           <span className="flex items-center gap-1"><Timer size={14} /> {timeLimit}s</span>
-          <span className="flex items-center gap-1"><Zap size={14} /> {penalty}s penalty</span>
         </div>
 
         {isCreator && joinerState && (
@@ -201,7 +185,6 @@ function CompetitiveQuiz({
   questions,
   startedAt,
   timeLimit,
-  penalty,
   myState,
   opponentState,
   opponentName,
@@ -212,7 +195,6 @@ function CompetitiveQuiz({
   questions: Question[];
   startedAt: number;
   timeLimit: number;
-  penalty: number;
   myState: PlayerState;
   opponentState: PlayerState | null;
   opponentName: string;
@@ -229,13 +211,13 @@ function CompetitiveQuiz({
 
   useEffect(() => {
     timerRef.current = setInterval(() => {
-      const elapsed = Date.now() - startedAt - myState.timePenalty * 1000;
+      const elapsed = Date.now() - startedAt;
       const left = Math.max(0, timeLimit * 1000 - elapsed);
       setRemaining(left);
       if (left <= 0) onTimeUp();
     }, 100);
     return () => { if (timerRef.current) clearInterval(timerRef.current); };
-  }, [startedAt, timeLimit, myState.timePenalty, onTimeUp]);
+  }, [startedAt, timeLimit, onTimeUp]);
 
   if (!currentQ) {
     onStateChange({ ...myState, finished: true });
@@ -251,12 +233,11 @@ function CompetitiveQuiz({
     setSelectedIndex(index);
     setShowFeedback(true);
     const isCorrect = index === currentQ.correctIndex;
-    const newPenalty = isCorrect ? myState.timePenalty : myState.timePenalty + penalty;
     const newIndex = myState.currentIndex + 1;
     const newScore = isCorrect ? myState.score + 1 : myState.score;
     const finished = newIndex >= questions.length;
     setTimeout(() => {
-      onStateChange({ ...myState, score: newScore, currentIndex: newIndex, timePenalty: newPenalty, finished });
+      onStateChange({ ...myState, score: newScore, currentIndex: newIndex, timePenalty: 0, finished });
       setSelectedIndex(null);
       setShowFeedback(false);
     }, 1500);
@@ -313,7 +294,7 @@ function CompetitiveQuiz({
       {showFeedback && (
         <div className={`mt-6 p-4 rounded-xl border animate-in fade-in duration-200 ${selectedIndex === currentQ.correctIndex ? "bg-emerald-50 border-emerald-200" : "bg-rose-50 border-rose-200"}`}>
           <p className={`text-sm font-bold mb-1 ${selectedIndex === currentQ.correctIndex ? "text-emerald-800" : "text-rose-800"}`}>
-            {selectedIndex === currentQ.correctIndex ? "Correct!" : `Wrong! -${penalty}s penalty`}
+            {selectedIndex === currentQ.correctIndex ? "Correct!" : "Wrong!"}
           </p>
           <p className="text-slate-700 text-sm">{currentQ.explanation}</p>
         </div>
@@ -327,6 +308,7 @@ function RoomResults({
   joinerState,
   creatorName,
   joinerName,
+  totalQuestions,
   isCreator,
   onBack,
 }: {
@@ -334,6 +316,7 @@ function RoomResults({
   joinerState: PlayerState | null;
   creatorName: string;
   joinerName: string;
+  totalQuestions: number;
   isCreator: boolean;
   onBack: () => void;
 }) {
@@ -355,13 +338,11 @@ function RoomResults({
         <div className="grid grid-cols-2 gap-4 mb-8">
           <div className={`p-5 rounded-xl border-2 ${result === "win" ? "border-indigo-400 bg-indigo-50" : "border-slate-200 bg-slate-50"}`}>
             <p className="text-xs font-medium text-slate-500 mb-1">{myName}</p>
-            <p className="text-4xl font-bold text-slate-900">{myScore}</p>
-            <p className="text-xs text-slate-500 mt-1">+{me?.timePenalty ?? 0}s penalty</p>
+            <p className="text-4xl font-bold text-slate-900">{myScore}<span className="text-lg text-slate-400">/{totalQuestions}</span></p>
           </div>
           <div className={`p-5 rounded-xl border-2 ${result === "lose" ? "border-rose-400 bg-rose-50" : "border-slate-200 bg-slate-50"}`}>
             <p className="text-xs font-medium text-slate-500 mb-1">{theirName}</p>
-            <p className="text-4xl font-bold text-slate-900">{theirScore}</p>
-            <p className="text-xs text-slate-500 mt-1">+{them?.timePenalty ?? 0}s penalty</p>
+            <p className="text-4xl font-bold text-slate-900">{theirScore}<span className="text-lg text-slate-400">/{totalQuestions}</span></p>
           </div>
         </div>
         <button onClick={onBack} className="w-full py-4 bg-slate-900 text-white rounded-xl font-semibold text-lg hover:bg-slate-800 active:scale-[0.98] transition-all cursor-pointer">
@@ -384,7 +365,6 @@ export default function RoomPage({ onBack }: Props) {
   const [error, setError] = useState("");
   const [selectedCats, setSelectedCats] = useState<Category[]>(["Synonym"]);
   const [timeLimit, setTimeLimit] = useState(60);
-  const [penalty, setPenalty] = useState(10);
   const [questions, setQuestions] = useState<Question[]>([]);
   const [startedAt, setStartedAt] = useState<number>(0);
   const [creatorState, setCreatorState] = useState<PlayerState | null>(null);
@@ -399,7 +379,6 @@ export default function RoomPage({ onBack }: Props) {
       const msg = payload as RoomChannelState;
       if (msg.type === "player_joined" && msg.state) {
         setJoinerState(msg.state);
-        // Creator replies with their own state so the joiner sees the host name
         if (isCreator && creatorState) {
           channel.send({ type: "broadcast", event: "state", payload: { type: "player_update", player: "creator", state: creatorState } });
         }
@@ -420,7 +399,6 @@ export default function RoomPage({ onBack }: Props) {
 
   useEffect(() => () => { channelRef.current?.unsubscribe(); }, []);
 
-  // Fallback poll: creator polls DB every 2s to detect joiner if broadcast is missed
   useEffect(() => {
     if (phase !== "waiting" || !room || !isCreator || joinerState) return;
     const interval = setInterval(async () => {
@@ -442,7 +420,7 @@ export default function RoomPage({ onBack }: Props) {
 
   const handleCreate = async () => {
     if (!displayName.trim()) return;
-    const r = await createRoom(anonId, displayName.trim(), selectedCats, timeLimit, penalty);
+    const r = await createRoom(anonId, displayName.trim(), selectedCats, timeLimit, 0);
     if (!r) { setError("Failed to create room. Check your database setup."); return; }
     setRoom(r);
     setCreatorState({ name: displayName.trim(), score: 0, currentIndex: 0, timePenalty: 0, finished: false });
@@ -453,11 +431,10 @@ export default function RoomPage({ onBack }: Props) {
   const handleJoin = async () => {
     if (!displayName.trim() || !joinCode.trim()) return;
     const r = await joinRoom(joinCode.trim(), anonId, displayName.trim());
-    if (!r) { setError("Room not found or already started."); return }
+    if (!r) { setError("Room not found or already started."); return; }
     const joiner: PlayerState = { name: displayName.trim(), score: 0, currentIndex: 0, timePenalty: 0, finished: false };
     setRoom(r);
     setJoinerState(joiner);
-    // Pick up creator name from the DB row (already stored by createRoom)
     setCreatorState({ name: r.creator_name, score: 0, currentIndex: 0, timePenalty: 0, finished: false });
     loadQuestions(r.question_ids);
     subscribeToRoom(r.id);
@@ -482,8 +459,8 @@ export default function RoomPage({ onBack }: Props) {
     if (isCreator) setCreatorState(state);
     else setJoinerState(state);
     channelRef.current?.send({ type: "broadcast", event: "state", payload: { type: state.finished ? "player_finished" : "player_update", player: isCreator ? "creator" : "joiner", state } });
-    const other = isCreator ? joinerState : creatorState;
-    if (state.finished && other?.finished) {
+    // When someone finishes, end the game immediately for both
+    if (state.finished) {
       setPhase("results");
       channelRef.current?.send({ type: "broadcast", event: "state", payload: { type: "game_over", player: isCreator ? "creator" : "joiner", state } });
       if (room) endGame(room.id);
@@ -503,7 +480,7 @@ export default function RoomPage({ onBack }: Props) {
   };
 
   if (phase === "waiting" && room) {
-    return <WaitingView room={room} isCreator={!!isCreator} creatorState={creatorState} joinerState={joinerState} timeLimit={timeLimit} penalty={penalty} copied={copied} onCopy={() => { navigator.clipboard.writeText(room.code); setCopied(true); setTimeout(() => setCopied(false), 2000); }} onStart={handleStart} onLeave={onBack} />;
+    return <WaitingView room={room} isCreator={!!isCreator} creatorState={creatorState} joinerState={joinerState} timeLimit={timeLimit} copied={copied} onCopy={() => { navigator.clipboard.writeText(room.code); setCopied(true); setTimeout(() => setCopied(false), 2000); }} onStart={handleStart} onLeave={onBack} />;
   }
 
   if (phase === "countdown") {
@@ -513,12 +490,12 @@ export default function RoomPage({ onBack }: Props) {
   if (phase === "playing" && questions.length > 0) {
     const opponentState = isCreator ? joinerState : creatorState;
     const myState = isCreator ? creatorState : joinerState;
-    return <CompetitiveQuiz questions={questions} startedAt={startedAt} timeLimit={timeLimit} penalty={penalty} myState={myState!} opponentState={opponentState} opponentName={isCreator ? joinerState?.name || "Opponent" : creatorState?.name || "Opponent"} onStateChange={handlePlayerUpdate} onTimeUp={handleTimeUp} onQuit={onBack} />;
+    return <CompetitiveQuiz questions={questions} startedAt={startedAt} timeLimit={timeLimit} myState={myState!} opponentState={opponentState} opponentName={isCreator ? joinerState?.name || "Opponent" : creatorState?.name || "Opponent"} onStateChange={handlePlayerUpdate} onTimeUp={handleTimeUp} onQuit={onBack} />;
   }
 
   if (phase === "results") {
-    return <RoomResults creatorState={creatorState} joinerState={joinerState} creatorName={room?.creator_name || "Player 1"} joinerName={room?.joiner_name || "Player 2"} isCreator={!!isCreator} onBack={onBack} />;
+    return <RoomResults creatorState={creatorState} joinerState={joinerState} creatorName={room?.creator_name || "Player 1"} joinerName={room?.joiner_name || "Player 2"} totalQuestions={questions.length} isCreator={!!isCreator} onBack={onBack} />;
   }
 
-  return <LobbyView displayName={displayName} setDisplayName={setDisplayName} joinCode={joinCode} setJoinCode={setJoinCode} selectedCats={selectedCats} toggleCat={toggleCat} timeLimit={timeLimit} setTimeLimit={setTimeLimit} penalty={penalty} setPenalty={setPenalty} error={error} onCreate={handleCreate} onJoin={handleJoin} onBack={onBack} />;
+  return <LobbyView displayName={displayName} setDisplayName={setDisplayName} joinCode={joinCode} setJoinCode={setJoinCode} selectedCats={selectedCats} toggleCat={toggleCat} timeLimit={timeLimit} setTimeLimit={setTimeLimit} error={error} onCreate={handleCreate} onJoin={handleJoin} onBack={onBack} />;
 }
