@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import dynamic from "next/dynamic";
 import CategoryPicker from "@/components/CategoryPicker";
 import QuizEngine from "@/components/QuizEngine";
@@ -23,6 +23,11 @@ export default function Home() {
     categories: Category[];
     count: number;
   } | null>(null);
+
+  // Preload RoomPage chunk so first click is instant
+  useEffect(() => {
+    import("@/components/RoomPage");
+  }, []);
 
   const handleStart = (categories: Category[], count: number) => {
     setQuizConfig({ categories, count });
