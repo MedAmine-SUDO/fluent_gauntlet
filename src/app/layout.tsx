@@ -1,13 +1,10 @@
 import type { Metadata } from "next";
-import { Inter } from "next/font/google";
 import "./globals.css";
-
-const inter = Inter({ subsets: ["latin"] });
+import { AuthProvider } from "@/lib/supabase/provider";
 
 export const metadata: Metadata = {
-  title: "Daily English Gauntlet | Master TOEIC & IELTS",
-  description:
-    "Master synonyms, inverses, and exam tricks.",
+  title: "English Gauntlet | Master TOEIC & IELTS",
+  description: "Master synonyms, inverses, and exam tricks.",
 };
 
 export default function RootLayout({
@@ -17,10 +14,8 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body
-        className={`${inter.className} bg-slate-50 text-slate-900 antialiased`}
-      >
-        {children}
+      <body className="font-sans bg-slate-50 text-slate-900 antialiased">
+        <AuthProvider>{children}</AuthProvider>
       </body>
     </html>
   );

@@ -1,13 +1,15 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useRef, useEffect } from "react";
 import { Question, Category, allQuestions } from "@/data/questions";
+import { useAuth } from "@/lib/supabase/provider";
+import { recordAnswer } from "@/lib/stats";
 import QuestionCard from "./QuestionCard";
 import ResultsScreen from "./ResultsScreen";
 
 interface Props {
   categories: Category[];
-  count: number; // 10, 20, 50, or -1 for infinite
+  count: number;
   onBackToPicker: () => void;
 }
 
@@ -20,11 +22,17 @@ function shuffle<T>(array: T[]): T[] {
   return copy;
 }
 
-export default function QuizEngine({ categories, count, onBackToPicker }: Props) {
+export default function QuizEngine({
+  categories,
+  count,
+  onBackToPicker,
+}: Props) {
+  const { user } = useAuth();
   const [currentIndex, setCurrentIndex] = useState(0);
   const [score, setScore] = useState(0);
   const [isFinished, setIsFinished] = useState(false);
   const [sessionKey, setSessionKey] = useState(0);
+  const questionStartTime = useRef<number>(Date.now());
 
   const filteredPool = useMemo(() => {
     const pool = allQuestions.filter((q) => categories.includes(q.category));
@@ -34,7 +42,6 @@ export default function QuizEngine({ categories, count, onBackToPicker }: Props)
   const isInfinite = count === -1;
   const displayQuestions = useMemo(() => {
     if (isInfinite) {
-      // For infinite, cycle through the pool
       const result: Question[] = [];
       while (result.length < 500) {
         result.push(...shuffle(filteredPool));
@@ -44,8 +51,25 @@ export default function QuizEngine({ categories, count, onBackToPicker }: Props)
     return filteredPool.slice(0, Math.min(count, filteredPool.length));
   }, [filteredPool, count, isInfinite]);
 
+  // Reset timer when question changes
+  useEffect(() => {
+    questionStartTime.current = Date.now();
+  }, [currentIndex]);
+
   const handleAnswer = (isCorrect: boolean) => {
+    const timeSpent = Date.now() - questionStartTime.current;
+
     if (isCorrect) setScore((prev) => prev + 1);
+
+    // Track stats if logged in
+    if (user) {
+      recordAnswer(
+        user.id,
+        displayQuestions[currentIndex].category,
+        isCorrect,
+        timeSpent
+      );
+    }
 
     if (!isInfinite && currentIndex + 1 >= displayQuestions.length) {
       setIsFinished(true);
@@ -59,6 +83,7 @@ export default function QuizEngine({ categories, count, onBackToPicker }: Props)
     setScore(0);
     setIsFinished(false);
     setSessionKey((prev) => prev + 1);
+    questionStartTime.current = Date.now();
   };
 
   if (isFinished) {
