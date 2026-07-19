@@ -240,7 +240,7 @@ function CompetitiveQuiz({
       onStateChange({ ...myState, score: newScore, currentIndex: newIndex, timePenalty: 0, finished });
       setSelectedIndex(null);
       setShowFeedback(false);
-    }, 1500);
+    }, isCorrect ? 1200 : 600);
   };
 
   const getOptionStyle = (index: number) => {
@@ -306,24 +306,20 @@ function CompetitiveQuiz({
 function RoomResults({
   creatorState,
   joinerState,
-  creatorName,
-  joinerName,
   totalQuestions,
   isCreator,
   onBack,
 }: {
   creatorState: PlayerState | null;
   joinerState: PlayerState | null;
-  creatorName: string;
-  joinerName: string;
   totalQuestions: number;
   isCreator: boolean;
   onBack: () => void;
 }) {
   const me = isCreator ? creatorState : joinerState;
   const them = isCreator ? joinerState : creatorState;
-  const myName = isCreator ? creatorName : joinerName;
-  const theirName = isCreator ? joinerName : creatorName;
+  const myName = me?.name ?? "You";
+  const theirName = them?.name ?? "Opponent";
   const myScore = me?.score ?? 0;
   const theirScore = them?.score ?? 0;
   const result: "win" | "lose" | "draw" = myScore > theirScore ? "win" : myScore < theirScore ? "lose" : "draw";
@@ -494,7 +490,7 @@ export default function RoomPage({ onBack }: Props) {
   }
 
   if (phase === "results") {
-    return <RoomResults creatorState={creatorState} joinerState={joinerState} creatorName={room?.creator_name || "Player 1"} joinerName={room?.joiner_name || "Player 2"} totalQuestions={questions.length} isCreator={!!isCreator} onBack={onBack} />;
+    return <RoomResults creatorState={creatorState} joinerState={joinerState} totalQuestions={questions.length} isCreator={!!isCreator} onBack={onBack} />;
   }
 
   return <LobbyView displayName={displayName} setDisplayName={setDisplayName} joinCode={joinCode} setJoinCode={setJoinCode} selectedCats={selectedCats} toggleCat={toggleCat} timeLimit={timeLimit} setTimeLimit={setTimeLimit} error={error} onCreate={handleCreate} onJoin={handleJoin} onBack={onBack} />;
