@@ -7,11 +7,12 @@ import QuizEngine from "@/components/QuizEngine";
 import { Category } from "@/types";
 import { useAuth } from "@/lib/supabase/provider";
 import { useRouter } from "next/navigation";
-import { Zap, LogIn } from "lucide-react";
+import { Zap, LogIn, Users } from "lucide-react";
 
 const AuthModal = dynamic(() => import("@/components/AuthModal"), { ssr: false });
+const RoomPage = dynamic(() => import("@/components/RoomPage"), { ssr: false });
 
-type Screen = "landing" | "quiz";
+type Screen = "landing" | "quiz" | "room";
 
 export default function Home() {
   const { user, loading } = useAuth();
@@ -72,10 +73,9 @@ export default function Home() {
         </div>
       )}
 
-      {/* Auth Modal */}
       <AuthModal isOpen={authOpen} onClose={() => setAuthOpen(false)} />
 
-      {screen === "landing" ? (
+      {screen === "landing" && (
         <div className="w-full max-w-lg">
           <div className="text-center mb-8 animate-in fade-in duration-500">
             <div className="w-14 h-14 bg-indigo-600 rounded-2xl flex items-center justify-center mx-auto mb-5 shadow-lg shadow-indigo-200">
@@ -88,15 +88,30 @@ export default function Home() {
           </div>
 
           <CategoryPicker onStart={handleStart} />
+
+          {/* Play with Friends */}
+          <div className="mt-6">
+            <button
+              onClick={() => setScreen("room")}
+              className="w-full py-4 bg-white border-2 border-slate-200 text-slate-700 rounded-xl font-semibold text-lg hover:border-indigo-300 hover:bg-indigo-50 active:scale-[0.98] transition-all flex items-center justify-center gap-3 cursor-pointer"
+            >
+              <Users size={22} />
+              Play with Friends
+            </button>
+          </div>
         </div>
-      ) : (
-        quizConfig && (
-          <QuizEngine
-            categories={quizConfig.categories}
-            count={quizConfig.count}
-            onBackToPicker={handleBackToPicker}
-          />
-        )
+      )}
+
+      {screen === "quiz" && quizConfig && (
+        <QuizEngine
+          categories={quizConfig.categories}
+          count={quizConfig.count}
+          onBackToPicker={handleBackToPicker}
+        />
+      )}
+
+      {screen === "room" && (
+        <RoomPage onBack={() => setScreen("landing")} />
       )}
     </main>
   );
