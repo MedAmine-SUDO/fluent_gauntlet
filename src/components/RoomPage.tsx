@@ -421,6 +421,10 @@ export default function RoomPage({ onBack }: Props) {
         else setJoinerState(msg.state);
       }
       if (msg.type === "game_over") setPhase("results");
+      if (msg.type === "player_quit") {
+        // Opponent quit — you win, show results
+        setPhase("results");
+      }
       if (msg.type === "rematch" && msg.questionIds) {
         setQuestions(msg.questionIds.map((id) => allQuestions.find((q) => q.id === id)).filter(Boolean) as Question[]);
         setCreatorState((prev) => prev ? { ...prev, score: 0, currentIndex: 0, timePenalty: 0, finished: false } : prev);
@@ -523,6 +527,12 @@ export default function RoomPage({ onBack }: Props) {
     if (room) endGame(room.id);
   };
 
+  const handleQuit = () => {
+    channelRef.current?.send({ type: "broadcast", event: "state", payload: { type: "player_quit", player: isCreator ? "creator" : "joiner", state: isCreator ? creatorState! : joinerState! } });
+    if (room) endGame(room.id);
+    onBack();
+  };
+
   const handleTryAgain = () => {
     if (!isCreator || !room) return;
     const seen = getSeenIds();
@@ -548,7 +558,7 @@ export default function RoomPage({ onBack }: Props) {
   if (phase === "playing" && questions.length > 0) {
     const opponentState = isCreator ? joinerState : creatorState;
     const myState = isCreator ? creatorState : joinerState;
-    return <CompetitiveQuiz questions={questions} startedAt={startedAt} timeLimit={timeLimit} myState={myState!} opponentState={opponentState} opponentName={isCreator ? joinerState?.name || "Opponent" : creatorState?.name || "Opponent"} onStateChange={handlePlayerUpdate} onTimeUp={handleTimeUp} onQuit={onBack} />;
+    return <CompetitiveQuiz questions={questions} startedAt={startedAt} timeLimit={timeLimit} myState={myState!} opponentState={opponentState} opponentName={isCreator ? joinerState?.name || "Opponent" : creatorState?.name || "Opponent"} onStateChange={handlePlayerUpdate} onTimeUp={handleTimeUp} onQuit={handleQuit} />;
   }
 
   if (phase === "results") {

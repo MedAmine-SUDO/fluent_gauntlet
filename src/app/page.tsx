@@ -4,13 +4,13 @@ import { useState, useEffect } from "react";
 import dynamic from "next/dynamic";
 import CategoryPicker from "@/components/CategoryPicker";
 import QuizEngine from "@/components/QuizEngine";
+import RoomPage from "@/components/RoomPage";
 import { Category } from "@/types";
 import { useAuth } from "@/lib/supabase/provider";
 import { useRouter } from "next/navigation";
 import { Zap, LogIn, Users } from "lucide-react";
 
 const AuthModal = dynamic(() => import("@/components/AuthModal"), { ssr: false });
-const RoomPage = dynamic(() => import("@/components/RoomPage"), { ssr: false });
 
 type Screen = "landing" | "quiz" | "room";
 
@@ -23,11 +23,6 @@ export default function Home() {
     categories: Category[];
     count: number;
   } | null>(null);
-
-  // Preload RoomPage chunk so first click is instant
-  useEffect(() => {
-    import("@/components/RoomPage");
-  }, []);
 
   const handleStart = (categories: Category[], count: number) => {
     setQuizConfig({ categories, count });
