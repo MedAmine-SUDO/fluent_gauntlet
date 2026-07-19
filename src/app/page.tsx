@@ -1,13 +1,15 @@
 "use client";
 
 import { useState } from "react";
+import dynamic from "next/dynamic";
 import CategoryPicker from "@/components/CategoryPicker";
 import QuizEngine from "@/components/QuizEngine";
-import AuthModal from "@/components/AuthModal";
-import { Category } from "@/data/questions";
+import { Category } from "@/types";
 import { useAuth } from "@/lib/supabase/provider";
 import { useRouter } from "next/navigation";
 import { Zap, LogIn } from "lucide-react";
+
+const AuthModal = dynamic(() => import("@/components/AuthModal"), { ssr: false });
 
 type Screen = "landing" | "quiz";
 

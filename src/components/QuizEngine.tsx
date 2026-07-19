@@ -1,7 +1,8 @@
 "use client";
 
 import { useState, useMemo, useRef, useEffect } from "react";
-import { Question, Category, allQuestions } from "@/data/questions";
+import { Question, Category } from "@/types";
+import { allQuestions } from "@/data/questions";
 import { useAuth } from "@/lib/supabase/provider";
 import { recordAnswer } from "@/lib/stats";
 import QuestionCard from "./QuestionCard";

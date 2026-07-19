@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Category } from "@/data/questions";
+import { Category } from "@/types";
 import {
   BookOpen,
   ArrowRightLeft,

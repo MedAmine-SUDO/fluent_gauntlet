@@ -24,7 +24,7 @@ import {
   Zap,
   BarChart3,
 } from "lucide-react";
-import { Category } from "@/data/questions";
+import { Category } from "@/types";
 
 const categoryMeta: Record<
   Category,

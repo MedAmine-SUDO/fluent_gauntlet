@@ -1,14 +1,6 @@
-export type Category = "Synonym" | "Inverse" | "Meaning" | "Grammar";
+import { Question } from "@/types";
 
-export interface Question {
-  id: string;
-  category: Category;
-  difficulty: "Easy" | "Medium" | "Hard" | "Very Hard";
-  question: string;
-  options: string[];
-  correctIndex: number;
-  explanation: string;
-}
+export type { Question };
 
 export const allQuestions: Question[] = [
   // ──────────────── SYNONYMS (Easy) ────────────────

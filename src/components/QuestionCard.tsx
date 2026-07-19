@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Question, Category } from "@/data/questions";
+import { Question, Category } from "@/types";
 import { CheckCircle2, XCircle, ChevronRight, ArrowRight, X } from "lucide-react";
 
 const categoryColors: Record<

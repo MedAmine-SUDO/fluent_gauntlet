@@ -1,4 +1,4 @@
-import { Category } from "@/data/questions";
+import { Category } from "@/types";
 
 export interface UserStats {
   totalAnswered: number;
