@@ -530,7 +530,7 @@ export default function RoomPage({ onBack }: Props) {
   const handleQuit = () => {
     channelRef.current?.send({ type: "broadcast", event: "state", payload: { type: "player_quit", player: isCreator ? "creator" : "joiner", state: isCreator ? creatorState! : joinerState! } });
     if (room) endGame(room.id);
-    onBack();
+    setPhase("results");
   };
 
   const handleTryAgain = () => {
