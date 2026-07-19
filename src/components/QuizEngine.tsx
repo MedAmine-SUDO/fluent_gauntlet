@@ -76,6 +76,7 @@ export default function QuizEngine({ categories, count, onBackToPicker }: Props)
     <QuestionCard
       question={displayQuestions[currentIndex]}
       onAnswer={handleAnswer}
+      onQuit={onBackToPicker}
       currentIndex={currentIndex}
       totalQuestions={displayQuestions.length}
       isInfinite={isInfinite}

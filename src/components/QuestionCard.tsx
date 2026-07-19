@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { Question, Category } from "@/data/questions";
-import { CheckCircle2, XCircle, ChevronRight, ArrowRight } from "lucide-react";
+import { CheckCircle2, XCircle, ChevronRight, ArrowRight, X } from "lucide-react";
 
 const categoryColors: Record<
   Category,
@@ -37,6 +37,7 @@ const categoryColors: Record<
 interface Props {
   question: Question;
   onAnswer: (isCorrect: boolean) => void;
+  onQuit: () => void;
   currentIndex: number;
   totalQuestions: number;
   isInfinite: boolean;
@@ -45,6 +46,7 @@ interface Props {
 export default function QuestionCard({
   question,
   onAnswer,
+  onQuit,
   currentIndex,
   totalQuestions,
   isInfinite,
@@ -84,18 +86,27 @@ export default function QuestionCard({
     <div className="w-full max-w-2xl mx-auto animate-in fade-in slide-in-from-bottom-4 duration-500">
       {/* Header */}
       <div className="flex justify-between items-center mb-6">
-        <span
-          className={`text-xs font-semibold uppercase tracking-widest px-3 py-1.5 rounded-full ${colors.bg} ${colors.text} ${colors.border} border`}
+        <div className="flex items-center gap-3">
+          <span
+            className={`text-xs font-semibold uppercase tracking-widest px-3 py-1.5 rounded-full ${colors.bg} ${colors.text} ${colors.border} border`}
+          >
+            {question.category}
+          </span>
+          <span className="text-sm font-medium text-slate-400">
+            {isInfinite ? (
+              `${currentIndex + 1}`
+            ) : (
+              `${currentIndex + 1} / ${totalQuestions}`
+            )}
+          </span>
+        </div>
+        <button
+          onClick={onQuit}
+          className="w-8 h-8 rounded-lg flex items-center justify-center text-slate-400 hover:text-slate-700 hover:bg-slate-200 transition-colors cursor-pointer"
+          title="Quit to menu"
         >
-          {question.category}
-        </span>
-        <span className="text-sm font-medium text-slate-400">
-          {isInfinite ? (
-            `${currentIndex + 1}`
-          ) : (
-            `${currentIndex + 1} / ${totalQuestions}`
-          )}
-        </span>
+          <X size={18} />
+        </button>
       </div>
 
       {/* Progress Bar */}
