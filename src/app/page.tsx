@@ -3,11 +3,11 @@
 import { useState } from "react";
 import CategoryPicker from "@/components/CategoryPicker";
 import QuizEngine from "@/components/QuizEngine";
+import AuthModal from "@/components/AuthModal";
 import { Category } from "@/data/questions";
 import { useAuth } from "@/lib/supabase/provider";
-import { signInWithGoogle } from "@/lib/supabase/auth";
 import { useRouter } from "next/navigation";
-import { Zap, User, LogIn } from "lucide-react";
+import { Zap, LogIn } from "lucide-react";
 
 type Screen = "landing" | "quiz";
 
@@ -15,6 +15,7 @@ export default function Home() {
   const { user, loading } = useAuth();
   const router = useRouter();
   const [screen, setScreen] = useState<Screen>("landing");
+  const [authOpen, setAuthOpen] = useState(false);
   const [quizConfig, setQuizConfig] = useState<{
     categories: Category[];
     count: number;
@@ -59,7 +60,7 @@ export default function Home() {
             </button>
           ) : (
             <button
-              onClick={signInWithGoogle}
+              onClick={() => setAuthOpen(true)}
               className="flex items-center gap-2 bg-white border border-slate-200 rounded-full px-4 py-2 hover:border-slate-300 hover:shadow-sm transition-all text-sm font-medium text-slate-700 cursor-pointer"
             >
               <LogIn size={16} />
@@ -68,6 +69,9 @@ export default function Home() {
           )}
         </div>
       )}
+
+      {/* Auth Modal */}
+      <AuthModal isOpen={authOpen} onClose={() => setAuthOpen(false)} />
 
       {screen === "landing" ? (
         <div className="w-full max-w-lg">
