@@ -453,13 +453,14 @@ export default function RoomPage({ onBack }: Props) {
   const handleJoin = async () => {
     if (!displayName.trim() || !joinCode.trim()) return;
     const r = await joinRoom(joinCode.trim(), anonId, displayName.trim());
-    if (!r) { setError("Room not found or already started."); return; }
+    if (!r) { setError("Room not found or already started."); return }
     const joiner: PlayerState = { name: displayName.trim(), score: 0, currentIndex: 0, timePenalty: 0, finished: false };
     setRoom(r);
     setJoinerState(joiner);
+    // Pick up creator name from the DB row (already stored by createRoom)
+    setCreatorState({ name: r.creator_name, score: 0, currentIndex: 0, timePenalty: 0, finished: false });
     loadQuestions(r.question_ids);
     subscribeToRoom(r.id);
-    // Broadcast join event so the creator knows we're here
     setTimeout(() => {
       channelRef.current?.send({ type: "broadcast", event: "state", payload: { type: "player_joined", player: "joiner", state: joiner } });
     }, 500);
