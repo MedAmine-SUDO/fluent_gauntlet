@@ -4,7 +4,7 @@ import { useState, useMemo, useRef, useEffect } from "react";
 import { Question, Category } from "@/types";
 import { allQuestions } from "@/data/questions";
 import { useAuth } from "@/lib/supabase/provider";
-import { recordAnswer } from "@/lib/stats";
+import { recordAnswer, getStats } from "@/lib/stats";
 import QuestionCard from "./QuestionCard";
 import ResultsScreen from "./ResultsScreen";
 
@@ -33,14 +33,56 @@ export default function QuizEngine({
   const [score, setScore] = useState(0);
   const [isFinished, setIsFinished] = useState(false);
   const [sessionKey, setSessionKey] = useState(0);
+  const [reviewMode, setReviewMode] = useState(false);
   const questionStartTime = useRef<number>(Date.now());
 
   const filteredPool = useMemo(() => {
     const pool = allQuestions.filter((q) => categories.includes(q.category));
+    if (user && !reviewMode) {
+      const stats = getStats(user.id);
+      const seen = new Set(stats.seenQuestionIds);
+      return shuffle(pool.filter((q) => !seen.has(q.id)));
+    }
     return shuffle(pool);
-  }, [categories, sessionKey]);
+  }, [categories, sessionKey, user, reviewMode]);
 
   const isInfinite = count === -1;
+
+  if (filteredPool.length === 0) {
+    return (
+      <div className="w-full max-w-lg mx-auto text-center animate-in fade-in duration-500">
+        <div className="bg-white p-10 rounded-3xl shadow-xl border border-slate-100">
+          <p className="text-5xl mb-4">🎉</p>
+          <h2 className="text-2xl font-bold text-slate-900 mb-2">
+            All caught up!
+          </h2>
+          <p className="text-slate-500 mb-8">
+            You&apos;ve seen every question in these categories.
+          </p>
+          <div className="space-y-3">
+            <button
+              onClick={() => {
+                setReviewMode(true);
+                setSessionKey((p) => p + 1);
+                setCurrentIndex(0);
+                setScore(0);
+              }}
+              className="w-full py-3.5 bg-slate-900 text-white rounded-xl font-semibold text-sm hover:bg-slate-800 active:scale-[0.98] transition-all cursor-pointer"
+            >
+              Review All Again
+            </button>
+            <button
+              onClick={onBackToPicker}
+              className="w-full py-3 bg-slate-100 text-slate-700 rounded-xl font-semibold text-sm hover:bg-slate-200 active:scale-[0.98] transition-all cursor-pointer"
+            >
+              Change Categories
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   const displayQuestions = useMemo(() => {
     if (isInfinite) {
       const result: Question[] = [];
@@ -52,7 +94,6 @@ export default function QuizEngine({
     return filteredPool.slice(0, Math.min(count, filteredPool.length));
   }, [filteredPool, count, isInfinite]);
 
-  // Reset timer when question changes
   useEffect(() => {
     questionStartTime.current = Date.now();
   }, [currentIndex]);
@@ -62,10 +103,10 @@ export default function QuizEngine({
 
     if (isCorrect) setScore((prev) => prev + 1);
 
-    // Track stats if logged in
     if (user) {
       recordAnswer(
         user.id,
+        displayQuestions[currentIndex].id,
         displayQuestions[currentIndex].category,
         isCorrect,
         timeSpent

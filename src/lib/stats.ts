@@ -9,6 +9,7 @@ export interface UserStats {
   dailyStats: Record<string, { count: number; correct: number; timeSpent: number }>;
   categoryStats: Record<Category, { answered: number; correct: number }>;
   totalTimeSpent: number;
+  seenQuestionIds: string[];
 }
 
 const STORAGE_KEY = "gauntlet_stats";
@@ -34,6 +35,7 @@ export function saveStats(userId: string, stats: UserStats) {
 
 export function recordAnswer(
   userId: string,
+  questionId: string,
   category: Category,
   isCorrect: boolean,
   timeSpentMs: number
@@ -44,6 +46,10 @@ export function recordAnswer(
   stats.totalAnswered += 1;
   if (isCorrect) stats.totalCorrect += 1;
   stats.totalTimeSpent += timeSpentMs;
+
+  if (!stats.seenQuestionIds.includes(questionId)) {
+    stats.seenQuestionIds.push(questionId);
+  }
 
   // Daily stats
   if (!stats.dailyStats[today]) {
@@ -116,5 +122,6 @@ function defaultStats(): UserStats {
     dailyStats: {},
     categoryStats: {} as Record<Category, { answered: number; correct: number }>,
     totalTimeSpent: 0,
+    seenQuestionIds: [],
   };
 }
